@@ -1,0 +1,5 @@
+# Optional dependency for real person-detection inference (cv/detect.py).
+# The BaseDetector interface works without this package; only
+# UltralyticsPersonDetector requires it. YOLO model weights are downloaded
+# automatically by Ultralytics on first use (network access required).
+ultralytics

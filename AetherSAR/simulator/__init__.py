@@ -1,0 +1,1 @@
+"""AetherSAR - drone simulator package (state, movement, telemetry, mission engine)."""

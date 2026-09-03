@@ -1,0 +1,1 @@
+"""AetherSAR - computer-vision package (detection schema and detector interface)."""

@@ -1,0 +1,1 @@
+"""AetherSAR - search planning package (search areas and lawnmower path generation)."""
