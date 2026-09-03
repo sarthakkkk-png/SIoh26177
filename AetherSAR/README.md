@@ -23,6 +23,8 @@ physical UAV.
 - Simulated return-to-home behavior at critical battery
 - Structured person-detection schema and a clean detector interface
   (optional pretrained-model adapter; see "Computer vision" below)
+- FastAPI backend: missions, search paths, telemetry and detection ingestion,
+  and a WebSocket event stream (see "Phase 5 backend" below)
 - Canonical data schemas documented in `docs/SCHEMAS.md`
 
 ## Architecture
@@ -40,7 +42,9 @@ CV Detection (interface + optional pretrained-model adapter)
     ↓
 Detection Events (canonical schema, no invented coordinates)
     ↓
-Phase 5 Backend (FastAPI) - not implemented yet
+Phase 5 Backend (FastAPI - missions, search paths, telemetry, detections, WebSocket)
+    ↓
+Future Dashboard
 ```
 
 ## Repository layout
@@ -63,6 +67,13 @@ AetherSAR/
 ├── cv/                 # canonical detection schema + detector interface
 │   ├── detection.py
 │   └── detect.py
+├── backend/            # Phase 5 FastAPI backend (in-memory storage, no DB)
+│   ├── main.py
+│   ├── schemas.py      # Pydantic models mirroring the canonical schemas
+│   ├── store.py        # in-memory store
+│   ├── websocket.py    # WebSocket connection manager
+│   ├── routes/
+│   └── tests/
 ├── tests/              # top-level test suites + run_all runner
 ├── docs/
 │   ├── AetherSAR_Architecture.md   # Phase 5 design document
@@ -104,6 +115,51 @@ python3 main.py
 
 Telemetry is written to `simulator/output/telemetry.jsonl` (one JSON object
 per line).
+
+## Phase 5 backend
+
+The backend is a local FastAPI integration layer over the Phase 1-4 modules:
+it stores missions and their generated search paths, ingests telemetry and
+person-detection events (validated against the canonical schemas), and
+broadcasts live events over WebSocket for a future dashboard.
+
+Storage is **in-memory only** (no database) and resets on restart.
+
+```bash
+# Install backend dependencies
+pip install -r backend/requirements.txt
+
+# Start the server (from the AetherSAR/ directory)
+python3 -m uvicorn backend.main:app --reload
+```
+
+Interactive API docs: http://127.0.0.1:8000/docs
+
+Main endpoints:
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/missions` | Create a mission with a search area |
+| GET | `/missions/{id}` | Mission details |
+| POST | `/missions/{id}/search-path` | Generate lawnmower waypoints (existing planner) |
+| GET | `/missions/{id}/search-path` | Stored search path |
+| POST | `/telemetry` | Ingest a canonical telemetry record |
+| GET | `/missions/{id}/telemetry` | Stored telemetry for a mission |
+| POST | `/detections` | Ingest a canonical detection record (wrapped with mission_id) |
+| GET | `/missions/{id}/detections` | Stored detections for a mission |
+| WS | `/ws/missions/{id}` | Live mission events (telemetry, detections, search path) |
+| GET | `/health` | Health check |
+
+Backend limitations:
+
+- In-memory storage: data is lost on restart (no database yet).
+- Telemetry and detection ingestion require the mission to exist first
+  (`POST /missions`) - orphan records are rejected with 404.
+- Detections carry **no geographic coordinates** (geolocation is not
+  implemented; coordinates are never invented).
+- CV runtime inference remains unverified; the detection API accepts any
+  record conforming to the canonical schema.
+- No dashboard/frontend yet - the WebSocket stream is the future UI channel.
 
 ## Computer vision
 

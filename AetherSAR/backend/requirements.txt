@@ -1,0 +1,7 @@
+# AetherSAR Phase 5 backend dependencies.
+# Runtime:
+fastapi
+uvicorn[standard]
+
+# Tests (FastAPI TestClient):
+httpx

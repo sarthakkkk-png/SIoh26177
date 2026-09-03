@@ -1,0 +1,1 @@
+"""AetherSAR - Phase 5 FastAPI backend (missions, search paths, telemetry, detections, WebSocket)."""

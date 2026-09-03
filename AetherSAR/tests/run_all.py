@@ -15,6 +15,8 @@ TEST_MODULES = [
     "tests.test_waypoints",
     "tests.test_detection",
     "tests.test_mission",
+    "backend.tests.test_backend",
+    "backend.tests.test_websocket_live",
 ]
 
 
