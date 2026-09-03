@@ -25,6 +25,8 @@ physical UAV.
   (optional pretrained-model adapter; see "Computer vision" below)
 - FastAPI backend: missions, search paths, telemetry and detection ingestion,
   and a WebSocket event stream (see "Phase 5 backend" below)
+- Supabase/PostgreSQL persistence with an in-memory fallback for offline use
+  (see "Phase 6 persistence" and `docs/SUPABASE.md`)
 - Canonical data schemas documented in `docs/SCHEMAS.md`
 
 ## Architecture
@@ -67,11 +69,12 @@ AetherSAR/
 ├── cv/                 # canonical detection schema + detector interface
 │   ├── detection.py
 │   └── detect.py
-├── backend/            # Phase 5 FastAPI backend (in-memory storage, no DB)
+├── backend/            # Phase 5/6 FastAPI backend
 │   ├── main.py
 │   ├── schemas.py      # Pydantic models mirroring the canonical schemas
-│   ├── store.py        # in-memory store
+│   ├── store.py        # persistence facade (Supabase or in-memory)
 │   ├── websocket.py    # WebSocket connection manager
+│   ├── database/       # Supabase config, client, repositories, schema.sql
 │   ├── routes/
 │   └── tests/
 ├── tests/              # top-level test suites + run_all runner
@@ -152,7 +155,9 @@ Main endpoints:
 
 Backend limitations:
 
-- In-memory storage: data is lost on restart (no database yet).
+- Without Supabase credentials, storage falls back to in-memory and data is
+  lost on restart (with `SUPABASE_URL`/`SUPABASE_KEY` set, data persists in
+  Supabase/PostgreSQL - see `docs/SUPABASE.md`).
 - Telemetry and detection ingestion require the mission to exist first
   (`POST /missions`) - orphan records are rejected with 404.
 - Detections carry **no geographic coordinates** (geolocation is not
@@ -160,6 +165,26 @@ Backend limitations:
 - CV runtime inference remains unverified; the detection API accepts any
   record conforming to the canonical schema.
 - No dashboard/frontend yet - the WebSocket stream is the future UI channel.
+
+## Phase 6 persistence
+
+The backend persists through a single facade (`backend/store.py`) that is
+selected once at startup:
+
+- `SUPABASE_URL` and `SUPABASE_KEY` set (URL must be http(s)) → Supabase
+  persistence via the official client (`backend/database/`).
+- otherwise → in-memory store, fully offline.
+
+```bash
+# apply the schema in the Supabase SQL editor (backend/database/schema.sql),
+# then provide credentials - see backend/example.env for the template
+python3 -m uvicorn backend.main:app --reload --env-file .env
+```
+
+Persisted: missions, generated search paths, derived search cells,
+telemetry (canonical 13 fields), detections (canonical 6 fields, no
+coordinates), drones, and mission-event logs. Alert/media/report table
+structures exist for later phases. Full details in `docs/SUPABASE.md`.
 
 ## Computer vision
 

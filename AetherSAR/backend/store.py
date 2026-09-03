@@ -1,51 +1,50 @@
 """
-AetherSAR Phase 5 - in-memory store.
+AetherSAR - backend persistence facade.
 
-Deliberately no database: a simple dict store is enough for the local
-prototype and requires no external infrastructure. Data is lost on
-restart - documented in README.md.
+Selects the persistence implementation once at startup from the
+environment:
+
+  - SUPABASE_URL (http/https) and SUPABASE_KEY both set  -> SupabasePersistence
+  - otherwise                                             -> InMemoryPersistence
+
+Routes keep using the single `store` object, so no route contains database
+logic and the public API is identical in both modes. Without credentials the
+backend runs fully offline on the in-memory store (data lost on restart).
 """
 
-from typing import Dict, List, Optional
+import logging
+
+from backend.database.client import build_client
+from backend.database.config import load_config
+from backend.database.repositories import InMemoryPersistence, SupabasePersistence
+
+logger = logging.getLogger("aethersar.store")
 
 
-class InMemoryStore:
-    def __init__(self) -> None:
-        self._missions: Dict[str, dict] = {}
-        self._search_paths: Dict[str, dict] = {}
-        self._telemetry: Dict[str, List[dict]] = {}
-        self._detections: Dict[str, List[dict]] = {}
-
-    # --- missions -------------------------------------------------------
-    def add_mission(self, mission: dict) -> None:
-        self._missions[mission["mission_id"]] = mission
-
-    def get_mission(self, mission_id: str) -> Optional[dict]:
-        return self._missions.get(mission_id)
-
-    def mission_exists(self, mission_id: str) -> bool:
-        return mission_id in self._missions
-
-    # --- search paths ---------------------------------------------------
-    def set_search_path(self, mission_id: str, path: dict) -> None:
-        self._search_paths[mission_id] = path
-
-    def get_search_path(self, mission_id: str) -> Optional[dict]:
-        return self._search_paths.get(mission_id)
-
-    # --- telemetry ------------------------------------------------------
-    def add_telemetry(self, mission_id: str, record: dict) -> None:
-        self._telemetry.setdefault(mission_id, []).append(record)
-
-    def get_telemetry(self, mission_id: str) -> List[dict]:
-        return list(self._telemetry.get(mission_id, []))
-
-    # --- detections -----------------------------------------------------
-    def add_detection(self, mission_id: str, record: dict) -> None:
-        self._detections.setdefault(mission_id, []).append(record)
-
-    def get_detections(self, mission_id: str) -> List[dict]:
-        return list(self._detections.get(mission_id, []))
+def create_store():
+    config = load_config()
+    if config.enabled:
+        try:
+            client = build_client(config)
+        except Exception as exc:
+            logger.warning(
+                "Supabase is configured but the client could not be created (%s); "
+                "falling back to the in-memory store",
+                exc,
+            )
+            return InMemoryPersistence()
+        logger.info("AetherSAR persistence: Supabase (%s)", config.supabase_url)
+        return SupabasePersistence(client)
+    logger.info(
+        "AetherSAR persistence: in-memory (set SUPABASE_URL and SUPABASE_KEY "
+        "to enable Supabase persistence)"
+    )
+    return InMemoryPersistence()
 
 
-store = InMemoryStore()
+store = create_store()
+
+
+def persistence_mode() -> str:
+    """'supabase' when the store persists to Supabase, else 'memory'."""
+    return "supabase" if isinstance(store, SupabasePersistence) else "memory"

@@ -1,7 +1,13 @@
-# AetherSAR Phase 5 backend dependencies.
+# AetherSAR Phase 5/6 backend dependencies.
 # Runtime:
 fastapi
 uvicorn[standard]
+
+# Optional persistence: when SUPABASE_URL and SUPABASE_KEY are set, the
+# backend persists to Supabase/PostgreSQL (backend/database/). The backend
+# falls back to the in-memory store when this package or the credentials
+# are missing.
+supabase
 
 # Tests (FastAPI TestClient):
 httpx

@@ -12,6 +12,7 @@ so latitude/longitude are never invented for a detection.
 
 from fastapi import APIRouter, HTTPException
 
+from backend.eventlog import record_event
 from backend.schemas import DetectionIn
 from backend.store import store
 from backend.websocket import manager
@@ -31,6 +32,7 @@ async def ingest_detection(payload: DetectionIn) -> dict:
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc))
     store.add_detection(mission_id, record)
+    record_event(mission_id, "DETECTION_RECEIVED", f"{record['class']} at confidence {record['confidence']:.2f}")
     await manager.broadcast(
         mission_id,
         {"type": "detection", "mission_id": mission_id, "data": record},

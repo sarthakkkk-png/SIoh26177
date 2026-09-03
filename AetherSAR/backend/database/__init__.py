@@ -1,0 +1,1 @@
+"""AetherSAR - database/persistence layer (Supabase/PostgreSQL with in-memory fallback)."""

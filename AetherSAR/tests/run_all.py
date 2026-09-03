@@ -17,6 +17,7 @@ TEST_MODULES = [
     "tests.test_cv_runtime",
     "tests.test_mission",
     "backend.tests.test_backend",
+    "backend.tests.test_database",
     "backend.tests.test_websocket_live",
 ]
 

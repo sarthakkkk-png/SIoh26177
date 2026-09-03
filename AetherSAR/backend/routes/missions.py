@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from fastapi import APIRouter, Body, HTTPException
 
+from backend.eventlog import record_event
 from backend.schemas import Mission, MissionCreate, SearchPath, SearchPathRequest
 from backend.store import store
 from backend.websocket import manager
@@ -48,6 +49,7 @@ async def create_mission(payload: MissionCreate) -> dict:
         "created_at": _now_utc_z(),
     }
     store.add_mission(mission)
+    record_event(mission["mission_id"], "MISSION_CREATED", f"mission '{mission['name']}' created")
     await manager.broadcast(
         mission["mission_id"],
         {"type": "mission", "mission_id": mission["mission_id"], "data": {"status": mission["status"]}},
@@ -79,6 +81,14 @@ async def generate_search_path(
         "generated_at": _now_utc_z(),
     }
     store.set_search_path(mission_id, path)
+    # Persist the derived search cells (grid points, status "pending").
+    # Coverage tracking (marking cells "searched") is not implemented yet.
+    store.save_search_cells(mission_id, waypoints)
+    record_event(
+        mission_id,
+        "SEARCH_PATH_GENERATED",
+        f"lawnmower path with {len(waypoints)} waypoints (spacing {spacing_m} m)",
+    )
     await manager.broadcast(
         mission_id,
         {
