@@ -14,6 +14,7 @@ TEST_MODULES = [
     "tests.test_search_planner",
     "tests.test_waypoints",
     "tests.test_detection",
+    "tests.test_cv_runtime",
     "tests.test_mission",
     "backend.tests.test_backend",
     "backend.tests.test_websocket_live",

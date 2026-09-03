@@ -9,11 +9,22 @@ constructing the adapter raises BackendUnavailable; callers can catch it and
 continue without detection.
 
 No detection accuracy or frame-rate figures are claimed here.
+
+CLI (real inference):
+
+    python3 -m cv.detect <image> [--model yolov8n.pt] [--conf 0.35]
+    python3 -m cv.detect <image> --json
 """
 
+import json
+import sys
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import List, Union
+
+if __package__ in (None, ""):
+    # Allow running as a plain script: python3 cv/detect.py <image>
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from cv.detection import build_detection, validate_confidence
 
@@ -87,3 +98,43 @@ class UltralyticsPersonDetector(BaseDetector):
                     )
                 )
         return detections
+
+
+def main(argv=None) -> int:
+    """CLI entry point: run real person detection on a single image."""
+    import argparse
+
+    parser = argparse.ArgumentParser(
+        prog="cv.detect",
+        description="Run person detection on an image with a pretrained YOLO model.",
+    )
+    parser.add_argument("image", help="path to the input image")
+    parser.add_argument("--model", default="yolov8n.pt", help="YOLO model name/path (default: %(default)s)")
+    parser.add_argument("--conf", type=float, default=0.35, help="confidence threshold (default: %(default)s)")
+    parser.add_argument("--drone-id", default="DRONE-01", help="drone identifier for the records")
+    parser.add_argument("--frame-id", type=int, default=0, help="frame identifier for the records")
+    parser.add_argument("--json", action="store_true", help="print machine-readable JSON")
+    args = parser.parse_args(argv)
+
+    try:
+        detector = UltralyticsPersonDetector(model=args.model, confidence_threshold=args.conf)
+    except BackendUnavailable as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 1
+
+    detections = detector.detect(args.image, drone_id=args.drone_id, frame_id=args.frame_id)
+    if args.json:
+        print(json.dumps(detections, indent=2))
+    else:
+        print(f"Detected {len(detections)} person(s) in {args.image}")
+        for detection in detections:
+            box = detection["bbox"]
+            print(
+                f"  class={detection['class']} confidence={detection['confidence']:.3f} "
+                f"bbox=({box['x1']}, {box['y1']}, {box['x2']}, {box['y2']})"
+            )
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

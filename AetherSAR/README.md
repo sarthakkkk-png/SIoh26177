@@ -167,14 +167,47 @@ Backend limitations:
 `UltralyticsPersonDetector`, an adapter for a pretrained Ultralytics YOLO
 model (COCO "person" class). Runtime inference is **optional**: it requires
 the `ultralytics` package and, on first use, network access to download the
-model weights.
+model weights (yolov8n.pt, AGPL-3.0 via the Ultralytics project).
 
 ```bash
 pip install -r requirements-cv.txt
+
+# Run real person detection on an image (canonical records printed)
+python3 -m cv.detect cv/samples/bus.jpg
+
+# Machine-readable output
+python3 -m cv.detect cv/samples/bus.jpg --json
 ```
 
-The detection schema, interface, and validation are fully tested without any
-model weights. No detection accuracy or frame-rate figures are claimed.
+`cv/samples/bus.jpg` is the public Ultralytics YOLO demo image (source and
+license documented in `cv/samples/README.md`), used to verify inference
+end-to-end.
+
+### VERIFIED
+
+- Detector adapter loads a real model and runs inference
+  (`UltralyticsPersonDetector`, YOLOv8n on CPU).
+- Real model outputs convert into the canonical 6-field detection schema
+  (`class`, `confidence`, `bbox`, `frame_id`, `timestamp`, `drone_id`) and
+  pass the existing `cv.detection.validate_detection`.
+- Real detections are ingested by the Phase 5 backend
+  (`POST /detections` with the `{mission_id, detection}` wrapper) and
+  retrieved via `GET /missions/{id}/detections`.
+- The canonical detection schema carries no geographic coordinates.
+
+### NOT VERIFIED
+
+- No detection accuracy/precision/recall/mAP/FPS figures exist - there is no
+ground-truth evaluation in this repository.
+- The bundled sample image is a ground-level street scene, not aerial
+  imagery; no aerial or search-and-rescue detection performance is claimed.
+- Detection-to-GPS geolocation is not implemented.
+
+### Runtime tests
+
+`tests/test_cv_runtime.py` runs real inference when the optional stack is
+installed and skips gracefully otherwise, so the automated suite never
+depends on internet access or model downloads.
 
 ## Explicit limitations
 
